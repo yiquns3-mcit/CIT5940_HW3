@@ -325,7 +325,7 @@ public class BookRecommender {
             }
         }
         // 3. Check if there is a path
-        if (!visited.containsKey(targetBook)) return "NONE";
+        if (!visited.contains(targetBook)) return "NONE";
         // 4. Reconstruct the path
         List<String> path = new ArrayList<>();
         String current = targetBook;
