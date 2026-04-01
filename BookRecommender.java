@@ -59,9 +59,9 @@ public class BookRecommender {
         BufferedReader br = new BufferedReader(new FileReader(csvFile));
         String line;
         while ((line = br.readLine()) != null) {
-            String[] contents = line.split(",");
-            String user = contents[0];
-            String book = contents[1];
+            String[] contents = line.split(",", 2);
+            String user = contents[0].trim();
+            String book = contents[1].trim();
             userToBooks.putIfAbsent(user, new HashSet<>());
             userToBooks.get(user).add(book);
         }
@@ -73,6 +73,13 @@ public class BookRecommender {
     // example: map = {(node)book1: {(edge)book2: (weight)1, (edge)book3: (weight)2}, ...}
     public static Map<String, Map<String, Integer>> buildGraph(Map<String, Set<String>> bookMap) {
         Map<String, Map<String, Integer>> graph = new HashMap<>();
+        // put all books into the graph
+        for (String user : bookMap.keySet()) {
+            for (String book : bookMap.get(user)) {
+                graph.putIfAbsent(book, new HashMap<>());
+            }
+        }
+        // set the edges and the weights of each book
         for (String user : bookMap.keySet()) {
             List<String> books = new ArrayList<>(bookMap.get(user));
             // iterate through all books (pair by pair)
@@ -81,9 +88,6 @@ public class BookRecommender {
                     // get the book names (in this pair)
                     String book1 = books.get(i);
                     String book2 = books.get(j);
-                    // if meet a new book (put into graph)
-                    graph.putIfAbsent(book1, new HashMap<>());
-                    graph.putIfAbsent(book2, new HashMap<>());
                     // update the edge and the weight of each book
                     graph.get(book1).put(book2, graph.get(book1).getOrDefault(book2, 0) + 1);
                     graph.get(book2).put(book1, graph.get(book2).getOrDefault(book1, 0) + 1);                    
@@ -310,7 +314,7 @@ public class BookRecommender {
         while (!q.isEmpty()) {
             String curr = q.remove();
             if (curr.equals(targetBook)) break;
-            List<String> neighbors = new ArrayList<>(filtered.get(curr));
+            List<String> neighbors = new ArrayList<>(filtered.getOrDefault(curr, Collections.emptyList()));
             Collections.sort(neighbors);
             for (String neighbor : neighbors){
                 if (!visited.contains(neighbor)){
@@ -321,7 +325,7 @@ public class BookRecommender {
             }
         }
         // 3. Check if there is a path
-        if (!parent.containsKey(targetBook)) return "NONE";
+        if (!visited.containsKey(targetBook)) return "NONE";
         // 4. Reconstruct the path
         List<String> path = new ArrayList<>();
         String current = targetBook;
