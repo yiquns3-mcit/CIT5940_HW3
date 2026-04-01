@@ -47,7 +47,7 @@ public class BookRecommender {
                 System.out.println("Invalid command");
             }
         } catch (Exception e) {
-            System.out.println("None");
+            System.out.println("NONE");
         }
     }
 
@@ -139,7 +139,7 @@ public class BookRecommender {
                 // if the neighbor is in the input set, continue
                 if (inputSet.contains(neighbor)) continue;
                 // else, update the total weight
-                totalWeight.put(neighbor, totalWeight.getOrDefault(neighbor, 0) + 1);
+                totalWeight.put(neighbor, totalWeight.getOrDefault(neighbor, 0) + neighbors.get(neighbor));
             }
         }
         // System.out.println(totalWeight);
@@ -228,7 +228,11 @@ public class BookRecommender {
         // 3. Collect all candidate books from taste twins
         Set<String> candidateBooks = new HashSet<>();
         for (String twin : twins) {
-            candidateBooks.addAll(userToBooks.get(twin));
+            for (String book : userToBooks.get(twin)) {
+                if (!targetBooks.contains(book)) {
+                    candidateBooks.add(book);
+                }
+            }
         }
         // test print:
         // System.out.println("Candidate books found: ");
@@ -270,6 +274,8 @@ public class BookRecommender {
         Map<String, Map<String, Integer>> bookToBookGraph,
         String sourceBook,
         String targetBook) {
+        // 0. If the source and target are the same, return the source
+        if (sourceBook.equals(targetBook)) return sourceBook;
         // 1. Make Filtered-Co-Like graph
         // track the weights of each edge
         List<Integer> weights = new ArrayList<>();
@@ -304,7 +310,9 @@ public class BookRecommender {
         while (!q.isEmpty()) {
             String curr = q.remove();
             if (curr.equals(targetBook)) break;
-            for (String neighbor : filtered.get(curr)){
+            List<String> neighbors = new ArrayList<>(filtered.get(curr));
+            Collections.sort(neighbors);
+            for (String neighbor : neighbors){
                 if (!visited.contains(neighbor)){
                     visited.add(neighbor);
                     parent.put(neighbor, curr);
