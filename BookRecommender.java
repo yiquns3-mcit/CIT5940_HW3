@@ -104,20 +104,22 @@ public class BookRecommender {
             return "NONE";
         }
         Map<String, Integer> neighbors = graph.get(book);
+        if (neighbors == null || neighbors.isEmpty()) {
+            return "NONE";
+        }
         List<String> books = new ArrayList<>(neighbors.keySet());
         
         // sort the books
         Collections.sort(books, (a, b) -> {
-            int weightA = neighbors.get(a);
-            int weightB = neighbors.get(b);
-            if (weightA != weightB) {
-                return weightB - weightA; // descending
+            int cmp = Integer.compare(
+                neighbors.get(b),
+                neighbors.get(a)
+            );
+            if (cmp != 0) {
+                return cmp;        // descending
             }
             return a.compareTo(b); // alphabetical
         });
-        if (books.size() == 0) {
-            return "NONE";
-        }
         // set the limit numbers of recommended books
         int limit = Math.min(5, books.size());
         // return in a string format
