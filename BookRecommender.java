@@ -23,13 +23,11 @@ public class BookRecommender {
             if (command.equals("single_book_mn")) {
                 if (args.length != 3) return;
                 String bookId = args[2];
-                // System.out.println(bookId);
                 String result = singleBookRecommend(bookToBookGraph, bookId);
                 System.out.println(result);
             } else if (command.equals("like_history_mn")) {
                 if (args.length < 3) return;
                 String[] inputBooks = Arrays.copyOfRange(args, 2, args.length);
-                // System.out.println(Arrays.toString(inputBooks));
                 String result = likeHistoryRecommend(bookToBookGraph, inputBooks);
                 System.out.println(result);
             } else if (command.equals("user_cf")) {
@@ -112,27 +110,28 @@ public class BookRecommender {
             return "NONE";
         }
 
-        List<String> books = new ArrayList<>(neighbors.keySet());
-        
+        List<Map.Entry<String,Integer>> books = new ArrayList<>(neighbors.entrySet());
         // sort the books:
         // 1. descending by weight
         // 2. alphabetical
         Collections.sort(books, (a, b) -> {
-            int weightCompare = Integer.compare(neighbors.get(b), neighbors.get(a));
-            if (weightCompare != 0) return weightCompare;
-            return a.compareTo(b);
+            int cmp = b.getValue() - a.getValue();
+            if (cmp != 0) return cmp;
+            return a.getKey().compareTo(b.getKey());
         });
+
+        List<String> result = new ArrayList<>();
 
         // return at most 5 books
         int limit = Math.min(5, books.size());
-
-        List<String> result = books.subList(0, limit);
-
+        for (int i = 0; i < limit; i++) {
+            result.add(books.get(i).getKey());
+        }
         // if there are no recommended books, return NONE/
         if (result.isEmpty()) return "NONE";
 
         // return in a string format
-        return String.join(",", books.subList(0, limit));
+        return String.join(",", result);
     }
 
     // Part 2b: Like-History Nearest Neighbors
