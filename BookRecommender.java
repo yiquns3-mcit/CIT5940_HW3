@@ -3,50 +3,52 @@ import java.io.*;
 
 public class BookRecommender {
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args){
+        try {
+            if (args.length < 2) {
+                System.out.println("Invalid input: Please provide csv_file and command.");
+                return;
+            }
 
-        if (args.length < 2) {
-            System.out.println("Invalid input: Please provide csv_file and command.");
-            return;
+            String csvFile = args[0];
+            String command = args[1];
+
+            // parse the CSV file (user to books graph)
+            Map<String, Set<String>> userToBooks = parseCSV(csvFile);
+            // build the graph (book to book graph)
+            Map<String, Map<String, Integer>> bookToBookGraph = buildGraph(userToBooks);
+            // build the graph (book to user graph)
+            Map<String, Set<String>> bookToUsers = buildBookToUsers(userToBooks);
+            // get the recommendation based on the command
+            if (command.equals("single_book_mn")) {
+                if (args.length != 3) return;
+                String bookId = args[2];
+                // System.out.println(bookId);
+                String result = singleBookRecommend(bookToBookGraph, bookId);
+                System.out.println(result);
+            } else if (command.equals("like_history_mn")) {
+                if (args.length < 3) return;
+                String[] inputBooks = Arrays.copyOfRange(args, 2, args.length);
+                // System.out.println(Arrays.toString(inputBooks));
+                String result = likeHistoryRecommend(bookToBookGraph, inputBooks);
+                System.out.println(result);
+            } else if (command.equals("user_cf")) {
+                if (args.length != 3) return;
+                String targetUser = args[2];
+                String result = userCF(userToBooks, bookToUsers, targetUser);
+                System.out.println(result);
+            } else if (command.equals("shortest_path")) {
+                if (args.length != 4) return;
+                String sourceBook = args[2];
+                String targetBook = args[3];
+                String result = shortestPath(bookToBookGraph, sourceBook, targetBook);
+                System.out.println(result);
+            } else {
+                System.out.println("Invalid command");
+            }
+        } catch (Exception e) {
+            System.out.println("None");
         }
-
-        String csvFile = args[0];
-        String command = args[1];
-
-        // parse the CSV file (user to books graph)
-        Map<String, Set<String>> userToBooks = parseCSV(csvFile);
-        // build the graph (book to book graph)
-        Map<String, Map<String, Integer>> bookToBookGraph = buildGraph(userToBooks);
-        // build the graph (book to user graph)
-        Map<String, Set<String>> bookToUsers = buildBookToUsers(userToBooks);
-        // get the recommendation based on the command
-        if (command.equals("single_book_mn")) {
-            if (args.length != 3) return;
-            String bookId = args[2];
-            // System.out.println(bookId);
-            String result = singleBookRecommend(bookToBookGraph, bookId);
-            System.out.println(result);
-        } else if (command.equals("like_history_mn")) {
-            if (args.length < 3) return;
-            String[] inputBooks = Arrays.copyOfRange(args, 2, args.length);
-            // System.out.println(Arrays.toString(inputBooks));
-            String result = likeHistoryRecommend(bookToBookGraph, inputBooks);
-            System.out.println(result);
-        } else if (command.equals("user_cf")) {
-            if (args.length != 3) return;
-            String targetUser = args[2];
-            String result = userCF(userToBooks, bookToUsers, targetUser);
-            System.out.println(result);
-        } else if (command.equals("shortest_path")) {
-            if (args.length != 4) return;
-            String sourceBook = args[2];
-            String targetBook = args[3];
-            String result = shortestPath(bookToBookGraph, sourceBook, targetBook);
-            System.out.println(result);
-        }
-        // if the command is invalid, return an error message
-        else {System.out.println("Invalid command");}
-        return;
     }
 
     // Part 0: Parsing the CSV file
