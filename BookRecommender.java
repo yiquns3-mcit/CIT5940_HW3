@@ -57,9 +57,16 @@ public class BookRecommender {
         BufferedReader br = new BufferedReader(new FileReader(csvFile));
         String line;
         while ((line = br.readLine()) != null) {
-            String[] contents = line.split(",", 2);
-            String user = contents[0].trim();
-            String book = contents[1].trim();
+            line = line.trim();
+            if (line.isEmpty()) {
+                continue;
+            }
+            int comma = line.indexOf(',');
+            if (comma < 0) {
+                continue;
+            }
+            String user = line.substring(0, comma).trim();
+            String book = line.substring(comma + 1).trim();
             userToBooks.putIfAbsent(user, new HashSet<>());
             userToBooks.get(user).add(book);
         }
@@ -136,44 +143,43 @@ public class BookRecommender {
 
     // Part 2b: Like-History Nearest Neighbors
     public static String likeHistoryRecommend(Map<String, Map<String, Integer>> bookMap, String[] inputBooks) {
-        // compute the total weight of each book
+        // compute the total weight of each candidate book
         Map<String, Integer> totalWeight = new HashMap<>();
-        // create a set of input books
         Set<String> inputSet = new HashSet<>(Arrays.asList(inputBooks));
-        // iterate through all input books
+
         for (String book : inputSet) {
-            // if the book is not in the book map, continue
             if (!bookMap.containsKey(book)) {
                 continue;
             }
-            // get the neighbors of the book
             Map<String, Integer> neighbors = bookMap.get(book);
-            // iterate through all neighbors
-            for (String neighbor : neighbors.keySet()) {
-                // if the neighbor is in the input set, continue
-                if (inputSet.contains(neighbor)) continue;
-                // else, update the total weight
-                totalWeight.put(neighbor, totalWeight.getOrDefault(neighbor, 0) + neighbors.get(neighbor));
+            if (neighbors == null) {
+                continue;
+            }
+            for (Map.Entry<String, Integer> entry : neighbors.entrySet()) {
+                String neighbor = entry.getKey();
+                int weight = entry.getValue();
+                if (inputSet.contains(neighbor)) {
+                    continue;
+                }
+                totalWeight.put(neighbor, totalWeight.getOrDefault(neighbor, 0) + weight);
             }
         }
-        // System.out.println(totalWeight);
-        // if there are no total weight, return NONE
-        if (totalWeight.size() == 0) {
+
+        if (totalWeight.isEmpty()) {
             return "NONE";
         }
-        // sort the books by their total weight
+
         List<String> books = new ArrayList<>(totalWeight.keySet());
         Collections.sort(books, (a, b) -> {
             int weightA = totalWeight.get(a);
             int weightB = totalWeight.get(b);
             if (weightA != weightB) {
-                return weightB - weightA; // descending
+                return Integer.compare(weightB, weightA); // descending
             }
             return a.compareTo(b); // alphabetical
         });
-        // set the limit numbers of recommended books
+
         int limit = Math.min(5, books.size());
-        // return in a string format
         return String.join(",", books.subList(0, limit));
     }
 
@@ -196,12 +202,15 @@ public class BookRecommender {
         Map<String, Set<String>> userToBooks,
         Map<String, Set<String>> bookToUsers,
         String targetUser) {
-        
+
         if (!userToBooks.containsKey(targetUser)) {
             return "NONE";
         }
         // Get the books liked by the target user
         Set<String> targetBooks = userToBooks.get(targetUser);
+        if (targetBooks == null || targetBooks.isEmpty()) {
+            return "NONE";
+        }
 
         // 1. Compute Jaccard Similarity (b/t target user and other users)
         Map<String, Double> similarity = new HashMap<>();
@@ -239,10 +248,12 @@ public class BookRecommender {
         // System.out.println("Top 5 twins: ");
         // System.out.println(twins);
 
-        // 3. Collect all candidate books from taste twins
+        // 3. Collect all candidate books from taste twins, excluding books already read by target user
         Set<String> candidateBooks = new HashSet<>();
         for (String twin : twins) {
-            for (String book : userToBooks.get(twin)) {
+            Set<String> booksLiked = userToBooks.get(twin);
+            if (booksLiked == null) continue;
+            for (String book : booksLiked) {
                 if (!targetBooks.contains(book)) {
                     candidateBooks.add(book);
                 }
@@ -261,7 +272,7 @@ public class BookRecommender {
                     numTwinLikes++;
                 }
             }
-            int totalUserLikes = bookToUsers.get(book).size();
+            int totalUserLikes = bookToUsers.getOrDefault(book, Collections.emptySet()).size();
             double score = (double) numTwinLikes / totalUserLikes;
             bookScore.put(book, score);
         }
@@ -288,65 +299,82 @@ public class BookRecommender {
         Map<String, Map<String, Integer>> bookToBookGraph,
         String sourceBook,
         String targetBook) {
-        // 0. If the source and target are the same, return the source
-        if (sourceBook.equals(targetBook)) return sourceBook;
-        // 1. Make Filtered-Co-Like graph
-        // track the weights of each edge
-        List<Integer> weights = new ArrayList<>();
-        for (String book : bookToBookGraph.keySet()) {
-            for (Integer w : bookToBookGraph.get(book).values()) {
-                weights.add(w);
-            }
+        // if source or target is not in the graph, no path exists
+        if (!bookToBookGraph.containsKey(sourceBook) || !bookToBookGraph.containsKey(targetBook)) {
+            return "NONE";
         }
-        // if there are no weights, return NONE
-        if (weights.isEmpty()) return "NONE";
-        Collections.sort(weights);
-        int medianWeight = weights.get(weights.size() / 2);
-        // build the filtered-co-like graph
-        // example: filtered = {(node)book1: {(edge)book2, (edge)book3, ...}, ...}
-        // where each book has a list of neighbors with weight >= medianWeight
-        Map<String, List<String>> filtered = new HashMap<>();
-        for (String book : bookToBookGraph.keySet()) {
-            filtered.put(book, new ArrayList<>());
-            for (String neighbor : bookToBookGraph.get(book).keySet()) {
-                int weight = bookToBookGraph.get(book).get(neighbor);
-                if (weight >= medianWeight) {
-                    filtered.get(book).add(neighbor);
-                }
-            }
+        // trivial case
+        if (sourceBook.equals(targetBook)) {
+            return sourceBook;
         }
-        // 2. Run BFS
-        Queue<String> q = new ArrayDeque<>();
-        Set<String> visited = new HashSet<>();
-        Map<String,String> parent = new HashMap<>();
-        q.add(sourceBook);
-        visited.add(sourceBook);
-        while (!q.isEmpty()) {
-            String curr = q.remove();
-            if (curr.equals(targetBook)) break;
-            List<String> neighbors = new ArrayList<>(filtered.getOrDefault(curr, Collections.emptyList()));
-            Collections.sort(neighbors);
-            for (String neighbor : neighbors){
-                if (!visited.contains(neighbor)){
-                    visited.add(neighbor);
-                    parent.put(neighbor, curr);
-                    q.add(neighbor);
-                }
-            }
-        }
-        // 3. Check if there is a path
-        if (!visited.contains(targetBook)) return "NONE";
-        // 4. Reconstruct the path
-        List<String> path = new ArrayList<>();
-        String current = targetBook;
-        while (current != null) {
-            path.add(current);
-            current = parent.get(current);
-        }
-        // 5. reverse the path
-        Collections.reverse(path);
-        // 6. return the path
-        return String.join("->", path);
 
+        // 1. Collect all unique (undirected) edge weights
+        List<Integer> allWeights = new ArrayList<>();
+        Set<String> seenEdges = new HashSet<>();
+        for (Map.Entry<String, Map<String, Integer>> entry : bookToBookGraph.entrySet()) {
+            String a = entry.getKey();
+            for (Map.Entry<String, Integer> e : entry.getValue().entrySet()) {
+                String b = e.getKey();
+                String key = (a.compareTo(b) < 0) ? (a + "|" + b) : (b + "|" + a);
+                if (!seenEdges.contains(key)) {
+                    seenEdges.add(key);
+                    allWeights.add(e.getValue());
+                }
+            }
+        }
+
+        if (allWeights.isEmpty()) {
+            return "NONE";
+        }
+
+        // 2. Compute the median edge weight (double, following reference logic)
+        Collections.sort(allWeights);
+        int n = allWeights.size();
+        double median;
+        if (n % 2 == 0) {
+            median = (allWeights.get(n / 2 - 1) + allWeights.get(n / 2)) / 2.0;
+        } else {
+            median = allWeights.get(n / 2);
+        }
+
+        // 3. BFS on the filtered graph (only edges with weight >= median)
+        Map<String, String> parent = new HashMap<>();
+        Queue<String> queue = new ArrayDeque<>();
+        queue.add(sourceBook);
+        parent.put(sourceBook, null);
+
+        while (!queue.isEmpty()) {
+            String current = queue.remove();
+            Map<String, Integer> neighbors = bookToBookGraph.get(current);
+            if (neighbors == null) continue;
+
+            List<String> neighborList = new ArrayList<>(neighbors.keySet());
+            Collections.sort(neighborList); // alphabetical BFS tie-breaking
+
+            for (String neighbor : neighborList) {
+                int weight = neighbors.get(neighbor);
+                if (weight < median) {
+                    continue;
+                }
+                if (parent.containsKey(neighbor)) {
+                    continue;
+                }
+                parent.put(neighbor, current);
+                if (neighbor.equals(targetBook)) {
+                    // reconstruct path immediately
+                    List<String> path = new ArrayList<>();
+                    String curr = targetBook;
+                    while (curr != null) {
+                        path.add(curr);
+                        curr = parent.get(curr);
+                    }
+                    Collections.reverse(path);
+                    return String.join("->", path);
+                }
+                queue.add(neighbor);
+            }
+        }
+
+        return "NONE";
     }
 }
