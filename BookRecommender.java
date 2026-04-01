@@ -100,28 +100,37 @@ public class BookRecommender {
     // Part 2: Item-based Collaborative Filtering
     // Part 2a: Single-Book Nearest Neighbors
     public static String singleBookRecommend(Map<String, Map<String, Integer>> graph, String book) {
+        // no such book in the graph
         if (!graph.containsKey(book)) {
             return "NONE";
         }
+
         Map<String, Integer> neighbors = graph.get(book);
+
+        // no neighbors of the book
         if (neighbors == null || neighbors.isEmpty()) {
             return "NONE";
         }
+
         List<String> books = new ArrayList<>(neighbors.keySet());
         
-        // sort the books
+        // sort the books:
+        // 1. descending by weight
+        // 2. alphabetical
         Collections.sort(books, (a, b) -> {
-            int cmp = Integer.compare(
-                neighbors.get(b),
-                neighbors.get(a)
-            );
-            if (cmp != 0) {
-                return cmp;        // descending
-            }
-            return a.compareTo(b); // alphabetical
+            int weightCompare = Integer.compare(neighbors.get(b), neighbors.get(a));
+            if (weightCompare != 0) return weightCompare;
+            return a.compareTo(b);
         });
-        // set the limit numbers of recommended books
+
+        // return at most 5 books
         int limit = Math.min(5, books.size());
+
+        List<String> result = books.subList(0, limit);
+
+        // if there are no recommended books, return NONE/
+        if (result.isEmpty()) return "NONE";
+
         // return in a string format
         return String.join(",", books.subList(0, limit));
     }
